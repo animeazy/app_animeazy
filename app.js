@@ -1,4 +1,3 @@
-<script type="module">
 /* ===========================
    === Network Hints (auto) ===
    =========================== */
@@ -1227,4 +1226,3 @@ if (path.startsWith("/anime")) {
     } catch (e) {}
   })();
 }
-</script>
