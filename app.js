@@ -4,10 +4,10 @@
    =========================== */
 (function addNetworkHints(){
   const H = [
-    { rel:"preconnect",   href:"https://animeazyapi.vercel.app", crossorigin:"" },
+    { rel:"preconnect", href:"https://animeazyapi.vercel.app", crossorigin:"" },
     { rel:"dns-prefetch", href:"//animeazyapi.vercel.app" },
-    { rel:"preconnect",   href:"https://www.gstatic.com", crossorigin:"" },
-    { rel:"preconnect",   href:"https://www.googleapis.com", crossorigin:"" }
+    { rel:"preconnect", href:"https://www.gstatic.com", crossorigin:"" },
+    { rel:"preconnect", href:"https://www.googleapis.com", crossorigin:"" }
   ];
   for (const h of H) {
     if (document.querySelector(`link[rel="${h.rel}"][href="${h.href}"]`)) continue;
@@ -49,7 +49,6 @@ const params = new URLSearchParams(window.location.search);
 const token  = params.get("token");
 
 function showMain() {
-  console.log("[UI] showMain() → on affiche la page");
   if (loader && mainContent) { loader.style.display = "none"; mainContent.style.display = "block"; }
 }
 
@@ -59,10 +58,9 @@ function showMain() {
 const LOADER_STEPS = ["loading-step-1","loading-step-2","loading-step-3"];
 
 function showLoaderStep(stepIndex){
-  console.log(`[Loader] Step → ${stepIndex+1}`);
   LOADER_STEPS.forEach(id => {
     const node = document.getElementById(id);
-    if (!node) { console.warn("[Loader] Élément step introuvable:", id); return; }
+    if (!node) return;
     if (!node.dataset.origDisplay) {
       let disp = getComputedStyle(node).display;
       if (disp === "none") disp = "flex";
@@ -71,7 +69,6 @@ function showLoaderStep(stepIndex){
     node.classList.remove("__show");
     node.style.display = "none";
   });
-
   const el = document.getElementById(LOADER_STEPS[stepIndex]);
   if (!el) return;
   el.style.display = el.dataset.origDisplay || "flex";
@@ -101,7 +98,7 @@ function parseDurationToSeconds(d){
 }
 function applyProgressPadding(cardEl, ratio01, ctxLog=""){
   const bar = cardEl.querySelector(".progress");
-  if (!bar) { console.warn("[Progress] Aucune .progress trouvée.", ctxLog); return; }
+  if (!bar) return;
   if (!bar.dataset._prInit) {
     bar.style.setProperty("width", "100%", "important");
     bar.style.setProperty("box-sizing", "border-box", "important");
@@ -180,9 +177,9 @@ function preloadImage(url, timeoutMs = 8000){
   return new Promise((resolve) => {
     if (!url) return resolve(false);
     const img = new Image();
-    const to  = setTimeout(() => { console.warn("[Preload] Timeout image", url); resolve(false); }, timeoutMs);
-    img.onload  = () => { clearTimeout(to); console.log("[Preload] OK", url); resolve(true); };
-    img.onerror = () => { clearTimeout(to); console.warn("[Preload] ERROR", url); resolve(false); };
+    const to  = setTimeout(() => resolve(false), timeoutMs);
+    img.onload  = () => { clearTimeout(to); resolve(true); };
+    img.onerror = () => { clearTimeout(to); resolve(false); };
     img.src = url;
   });
 }
@@ -200,32 +197,30 @@ function getSeasonCount(anime){
 
 /* Applique les infos “badges + textes + liens” */
 function populateHeroMeta(anime){
-  console.groupCollapsed("[HeroMeta] Application des badges/textes/liens");
-  console.log("[HeroMeta] Anime source:", anime);
-
   const logVis = (id, visible) => {
     const el = $(id);
-    if (!el) { console.warn("[HeroMeta] Élément introuvable:", id); return; }
+    if (!el) return;
     visible ? show(el) : hide(el);
-    console.log(`  • ${id} → ${visible ? "SHOW" : "HIDE"}`);
   };
 
-  // Ages (tous cachés par défaut dans le DOM ; on montre ceux présents)
-  logVis("anime-hero-10",  !!anime["10+"]);
-  logVis("anime-hero-12",  !!anime["12+"]);
-  logVis("anime-hero-14",  !!anime["14+"]);
-  logVis("anime-hero-18",  !!anime["18+"]);
+  // Ages
+  logVis("anime-hero-10", !!anime["10+"]);
+  logVis("anime-hero-12", !!anime["12+"]);
+  logVis("anime-hero-14", !!anime["14+"]);
+  logVis("anime-hero-18", !!anime["18+"]);
 
   // Langues
-  logVis("anime-hero-vf",     !!anime?.vf);
-  logVis("anime-hero-vostfr", !!anime?.vostfr);
+  logVis("anime-hero-vf",    !!anime?.vf);
+  logVis("anime-hero-vostfr",!!anime?.vostfr);
 
   // Année
   const yearEl = $("anime-hero-date");
   if (anime?.annee && yearEl){
     yearEl.textContent = String(anime.annee);
     show(yearEl);
-  } else if (yearEl) hide(yearEl);
+  } else if (yearEl) {
+    hide(yearEl);
+  }
 
   // Nb saisons
   const sCount = getSeasonCount(anime);
@@ -243,64 +238,38 @@ function populateHeroMeta(anime){
   const hrefLecture = baseId ? `/anime?id=${encodeURIComponent(baseId)}&s=1&ep=1` : "#";
   if (lecture) lecture.href = hrefLecture;
   if (info)    info.href    = hrefInfo;
-
-  console.groupEnd();
 }
 
 async function initHeroRandom({ waitForAssets = false } = {}){
-  console.group("[Hero] initHeroRandom()");
-  const t0 = performance.now();
   const hero   = $("hero-anime");
   const logoEl = $("logo-anime");
-  if (!hero || !logoEl){
-    console.warn("[Hero] #hero-anime ou #logo-anime introuvable.");
-    console.groupEnd();
-    return;
-  }
+  if (!hero || !logoEl) return;
 
   const overlayUrl = getFirstBgLayerUrl(hero);
-  console.log("[Hero] Overlay (calque 1):", overlayUrl);
 
   try {
-    console.log("[Hero] Fetch /api/animes…");
     const res = await fetch("https://animeazyapi.vercel.app/api/animes", { headers:{Accept:"application/json"} });
-    console.log("[Hero] HTTP status:", res.status);
     if (!res.ok) throw new Error("HTTP " + res.status);
     const list = await res.json();
-    console.log("[Hero] Nb animes reçus:", Array.isArray(list)? list.length : "(pas un array)");
-
-    if (!Array.isArray(list) || !list.length) {
-      console.warn("[Hero] Liste vide → abort");
-      console.groupEnd();
-      return;
-    }
+    if (!Array.isArray(list) || !list.length) return;
 
     const pick = list[Math.floor(Math.random() * list.length)];
-    console.log("[Hero] Anime choisi:", pick?.titre || pick?.id, pick);
-
     const poster = pick.url_poster || pick.url_affiche || "";
     const logo   = pick.url_logo    || "";
-    console.log("[Hero] poster:", poster);
-    console.log("[Hero] logo  :", logo);
 
     if (waitForAssets){
       populateHeroMeta(pick);
-      console.log("[Hero] Preload images (poster+logo)…");
-      const tPre = performance.now();
-      const [okPoster, okLogo] = await Promise.race([
+      await Promise.race([
         Promise.all([preloadImage(poster), preloadImage(logo)]),
-        new Promise(resolve => setTimeout(() => resolve([false,false]), 3000))
+        new Promise(r => setTimeout(r, 3000))
       ]);
-      console.log(`[Hero] Preload terminé en ${(performance.now()-tPre).toFixed(0)}ms | posterOK=${okPoster} logoOK=${okLogo}`);
     } else {
       populateHeroMeta(pick);
     }
 
-    console.log("[Hero] Application du background…");
     applyHeroBackground(hero, overlayUrl, poster);
 
     if (logo){
-      console.log("[Hero] Pose du logo <img>…");
       logoEl.src = logo;
       logoEl.alt = pick.titre || "Logo anime";
       logoEl.decoding = "async";
@@ -311,23 +280,14 @@ async function initHeroRandom({ waitForAssets = false } = {}){
       logoEl.style.display   = "block";
       const parent = logoEl.parentElement;
       if (parent) parent.style.overflow = "visible";
-    } else {
-      console.warn("[Hero] Pas de logo fourni.");
     }
-
-    console.log(`[Hero] Fini en ${(performance.now()-t0).toFixed(0)}ms`);
-  } catch (e){
-    console.error("[Hero] Erreur :", e);
-  } finally {
-    console.groupEnd();
-  }
+  } catch (e){}
 }
 
 /* ======================================
    === SECTION "REPRENDRE" (Historique) ===
    ====================================== */
 async function loadHistorique(userId) {
-  console.group("[Reprendre] loadHistorique");
   const limitEpisodes = 5;
   const titreReprendre  = document.getElementById("titre-reprendre");
   const cartesReprendre = document.getElementById("cartes-reprendre");
@@ -338,8 +298,6 @@ async function loadHistorique(userId) {
     if (!history || history.length === 0) {
       if (titreReprendre)  titreReprendre.style.display = "none";
       if (cartesReprendre) cartesReprendre.style.display = "none";
-      console.log("Aucun historique → section masquée.");
-      console.groupEnd();
       return;
     } else {
       if (titreReprendre)  titreReprendre.style.display = "";
@@ -357,7 +315,7 @@ async function loadHistorique(userId) {
 
     history.forEach((item, i) => {
       const anime = animes.find(a => a.animeID === item.animeID);
-      if (!anime || !cards[i]) { console.warn("Manque anime ou carte", i, item); return; }
+      if (!anime || !cards[i]) return;
 
       const card = cards[i];
       const contenu  = card.querySelector(".card-contenu");
@@ -377,7 +335,6 @@ async function loadHistorique(userId) {
         const timecodeSec = parseDurationToSeconds(item?.timecode);
         let dureeSec = findEpisodeDurationSecondsFromApi(anime, item.saison, item.episode);
         if (!Number.isFinite(dureeSec) || dureeSec <= 0) dureeSec = 1440;
-
         const ratio = (Number.isFinite(timecodeSec) && timecodeSec > 0) ? Math.max(0, Math.min(1, timecodeSec / dureeSec)) : 0;
         applyProgressPadding(card, ratio, `card#${i}`);
       } catch (e) {
@@ -388,11 +345,7 @@ async function loadHistorique(userId) {
     document.querySelectorAll(".carousel-history .card-history").forEach((card, i) => {
       card.style.display = i >= history.length ? "none" : "";
     });
-  } catch (err) {
-    console.error("[Reprendre] Erreur:", err);
-  } finally {
-    console.groupEnd();
-  }
+  } catch (err) {}
 }
 
 /* =========================
@@ -402,10 +355,7 @@ function __storePendingAction(actionName, payload = {}) {
   try {
     const pending = { actionName, payload, href: location.href, ts: Date.now() };
     sessionStorage.setItem("aaz:pendingAction", JSON.stringify(pending));
-    console.log("[Guard] pending action stored:", pending);
-  } catch (e) {
-    console.warn("[Guard] cannot store pending action", e);
-  }
+  } catch (e) {}
 }
 function __consumePendingAction() {
   try {
@@ -413,26 +363,18 @@ function __consumePendingAction() {
     if (!raw) return null;
     sessionStorage.removeItem("aaz:pendingAction");
     return JSON.parse(raw);
-  } catch (e) {
-    console.warn("[Guard] consume error", e);
-    return null;
-  }
+  } catch (e) { return null; }
 }
 async function requireAuthRedirect(actionName, payload = {}) {
   if (auth.currentUser) return true;
-
   const waited = await new Promise((resolve) => {
     let resolved = false;
     const stop = onAuthStateChanged(auth, (u) => {
-      if (!resolved) {
-        resolved = true; stop(); resolve(!!u);
-      }
+      if (!resolved) { resolved = true; stop(); resolve(!!u); }
     });
     setTimeout(() => { if (!resolved) { resolved = true; stop(); resolve(!!auth.currentUser); } }, 300);
   });
-
   if (waited) return true;
-
   __storePendingAction(actionName, payload);
   const returnTo = encodeURIComponent(location.href);
   location.assign(`/login?returnTo=${returnTo}`);
@@ -441,7 +383,6 @@ async function requireAuthRedirect(actionName, payload = {}) {
 function replayActionIfAny() {
   const p = __consumePendingAction();
   if (!p) return;
-  console.log("[Replay] action:", p);
   if (p.actionName === "play" && p.payload?.epid) {
     location.href = `/watch?ep=${encodeURIComponent(p.payload.epid)}`;
   } else if (p.actionName === "addToList" && p.payload?.animeId) {
@@ -450,8 +391,7 @@ function replayActionIfAny() {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ animeId: p.payload.animeId })
-    }).then(()=> console.log("[Replay] addToList OK"))
-      .catch(()=> console.warn("[Replay] addToList KO"));
+    }).catch(()=>{});
   }
 }
 document.addEventListener("click", async (e) => {
@@ -461,17 +401,13 @@ document.addEventListener("click", async (e) => {
   let payload = {};
   try { payload = el.dataset.payload ? JSON.parse(el.dataset.payload) : {}; } catch {}
   const can = await requireAuthRedirect(actionName, payload);
-  if (!can) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
+  if (!can) { e.preventDefault(); e.stopPropagation(); }
 });
 
 /* =========================
    === LOGIN via TOKEN   ===
    ========================= */
 async function handleTokenLogin(t) {
-  console.log("[Login] Connexion avec token…");
   try {
     const cred = await signInWithCustomToken(auth, t);
     window.history.replaceState({}, document.title, "/");
@@ -481,7 +417,6 @@ async function handleTokenLogin(t) {
       else { window.location.href = "/home"; }
     }, 500);
   } catch (err) {
-    console.error("[Login] Erreur:", err);
     window.history.replaceState({}, document.title, "/");
     showMain();
   }
@@ -504,7 +439,10 @@ function requireAuth(user) {
     return;
   }
 
-  if (!user) { window.location.href = "/"; return; }
+  if (!user) {
+    window.location.href = "/";
+    return;
+  }
 
   showLoaderStep(0);
 
@@ -523,18 +461,9 @@ function requireAuth(user) {
           window.location.href = "/onboarding";
         } else {
           if (isHome) {
-            console.log("[Flow] On attend le hero (images + badges + textes) AVANT showMain()");
             initHeroRandom({ waitForAssets:true })
-              .then(() => {
-                console.log("[Flow] Hero prêt → showMain() + loadHistorique");
-                showMain();
-                loadHistorique(user.uid);
-              })
-              .catch((e) => {
-                console.warn("[Flow] Hero a échoué (fallback) :", e);
-                showMain();
-                loadHistorique(user.uid);
-              });
+              .then(() => { showMain(); loadHistorique(user.uid); })
+              .catch(() => { showMain(); loadHistorique(user.uid); });
           } else {
             showMain();
           }
@@ -553,7 +482,7 @@ document.addEventListener("DOMContentLoaded", () => {
     logoutBtn.addEventListener("click", (e) => {
       e.preventDefault();
       signOut(auth).then(() => { window.location.href = "/"; })
-                   .catch((error) => console.error("[Logout] Erreur:", error));
+                   .catch(() => {});
     });
   }
 });
@@ -607,7 +536,7 @@ document.addEventListener("DOMContentLoaded", () => {
           document.head.appendChild(link);
         }
       }
-    }catch(e){}
+    }catch(e){ /* silencieux */ }
   }
 
   function onPrefetch(e){
@@ -656,13 +585,10 @@ if (path.startsWith("/login")) {
   }
   function goBack() {
     const target = getReturnTo() ? decodeURIComponent(getReturnTo()) : "/home";
-    console.log("[Login] back to:", target);
     location.replace(target);
   }
 
-  onAuthStateChanged(auth, (u) => {
-    if (u) goBack();
-  });
+  onAuthStateChanged(auth, (u) => { if (u) goBack(); });
 
   document.getElementById("login-discord")?.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -686,10 +612,7 @@ if (path.startsWith("/login")) {
   const hero       = document.getElementById("hero-section");
   const searchClearBtn   = document.querySelector(".icon_delete");
 
-  if (!input || !section || !meta || !emptyBox || !errorBox || !row) {
-    console.warn("[Search] éléments manquants :", {input,section,meta,emptyBox,errorBox,container,row});
-    return;
-  }
+  if (!input || !section || !meta || !emptyBox || !errorBox || !row) return;
 
   const setHidden = (el, hide)=> el && el.classList.toggle("is-hidden", !!hide);
 
@@ -827,7 +750,6 @@ if (path.startsWith("/login")) {
       loaded = true;
       allAnimes.sort((a,b)=> (a.titre||"").localeCompare(b.titre||"", "fr", {sensitivity:"base"}));
     }catch(e){
-      console.error("[Search] réseau:", e);
       setHidden(errorBox, false);
     }
   }
@@ -860,7 +782,6 @@ if (path.startsWith("/login")) {
     tid = setTimeout(async ()=>{
       const q = input.value || "";
       if (q.trim().length < 1){ resetToHero(); return; }
-
       revealSectionOnce();
       await ensureData(); if (!loaded) return;
       const results = filterAnimes(q);
@@ -941,10 +862,7 @@ if (path.startsWith("/login")) {
     document.getElementById("carousel-aaz") ||
     document.querySelector(".carousel-aaz") ||
     document.querySelector(".Carousel-AAZ");
-  if (!aazContainer) {
-    console.warn("[A-Z] Container non trouvé (id=carousel-aaz / .carousel-aaz).");
-    return;
-  }
+  if (!aazContainer) return;
 
   const row =
     aazContainer.querySelector("#RowContent-AAZ") ||
@@ -956,10 +874,7 @@ if (path.startsWith("/login")) {
   const MIN_SLOTS = 10;
 
   let template = row.querySelector(".cards-aaz, #Cards-AAZ, .Cards-AAZ");
-  if (!template) {
-    console.warn("[A-Z] Aucune carte trouvée (.cards-aaz / #Cards-AAZ). Laisse au moins 1 carte vide dans Webflow.");
-    return;
-  }
+  if (!template) return;
 
   const qLink     = (root)=> root.querySelector(".card-aaz, .card-AAZ");
   const qContent  = (root)=> root.querySelector(".card-contenu, .Card-contenu");
@@ -999,7 +914,7 @@ if (path.startsWith("/login")) {
   function setPosterOnCard(slot, url){
     const content = qContent(slot);
     const sk = qSkeleton(slot);
-    if (!content){ console.warn("[A-Z] .card-contenu introuvable."); return; }
+    if (!content) return;
     if (!url){
       content.style.removeProperty("background-image");
       if (sk) sk.style.display = "";
@@ -1049,10 +964,7 @@ if (path.startsWith("/login")) {
       const all = await res.json();
       all.sort((a,b)=> (a.titre||"").localeCompare(b.titre||"", "fr", {sensitivity:"base"}));
       renderAll(all);
-      console.log(`[A-Z] Rendu de ${all.length} animés (BG sur .card-contenu).`);
-    }catch(e){
-      console.error("[A-Z] Erreur de chargement :", e);
-    }
+    }catch(e){}
   })();
 })();
 
@@ -1060,11 +972,9 @@ if (path.startsWith("/login")) {
    === PAGE /anime : cache + data binding  ===
    =========================================== */
 if (path.startsWith("/anime")) {
-  console.log("[AnimePage] boot");
   const url    = new URL(location.href);
   const animeId = url.searchParams.get("id");
-  console.log("animeId:", animeId);
-  if (!animeId) { showMain(); console.warn("[AnimePage] ?id manquant"); }
+  if (!animeId) { showMain(); }
 
   // ---------- CONFIG ----------
   const CATALOG_URL = "https://animeazyapi.vercel.app/api/animes";
@@ -1081,7 +991,6 @@ if (path.startsWith("/anime")) {
   const $nbSais     = document.querySelector(".specifications-2 #anime-hero-saisons");
   const $titleHistory = document.querySelector(".div-block-10 .titlehistory");
   const $rowEp      = document.querySelector(".rowcontent-ep");
-  const $tplCard    = document.querySelector(".rowcontent-ep .cards-ep");
 
   const safeText = (el, txt) => { if (el) el.textContent = txt ?? ""; };
   const overlayUrlForHero = $hero ? getFirstBgLayerUrl($hero) : null;
@@ -1126,39 +1035,32 @@ if (path.startsWith("/anime")) {
   }
 
   async function getAnimeById(animeId) {
-    console.group("[getAnimeById]", animeId);
     const singleKey = `aaz:anime:${animeId}`;
     const c = getCache(singleKey);
-    if (c) { console.log("→ single cache HIT:", c); console.groupEnd(); return c; }
+    if (c) return c;
 
     try {
       const one = await fetchJson(DETAIL_URL(animeId));
-      if (one) { setCache(singleKey, one); console.log("→ detail endpoint OK"); console.groupEnd(); return one; }
-    } catch (e) {
-      console.debug("DETAIL_URL fallback:", e.message);
-    }
+      if (one) { setCache(singleKey, one); return one; }
+    } catch (e) {}
 
     const list = await getAllAnimesCached();
     const found = list.find(a => String(a.id ?? a.animeID) === String(animeId)) || null;
     if (found) setCache(singleKey, found);
-    console.groupEnd();
     return found;
   }
 
   // ---------- DATA SHAPERS ----------
   function extractSeasons(anime) {
-    console.group("[Seasons] extractSeasons");
     const out = [];
     try {
       if (Array.isArray(anime?.saisons)) {
-        console.log("shape: saisons[] (array)");
         anime.saisons.forEach(s => {
           const num = Number(s.numero ?? s.num ?? s.saison ?? 1);
           const eps = Array.isArray(s.episodes || s.Episodes) ? (s.episodes || s.Episodes) : [];
           out.push({ numero: num, episodes: eps });
         });
       } else if (anime?.Saisons && !Array.isArray(anime.Saisons)) {
-        console.log("shape: Saisons{} (object)");
         for (const sKey of Object.keys(anime.Saisons)) {
           const num = Number(String(sKey).replace(/\D+/g, "")) || 1;
           const s   = anime.Saisons[sKey] || {};
@@ -1168,13 +1070,10 @@ if (path.startsWith("/anime")) {
           out.push({ numero: num, episodes: eps });
         }
       } else if (Array.isArray(anime?.seasons)) {
-        console.log("shape: seasons[] (array)");
         anime.seasons.forEach(s => out.push({ numero: Number(s.numero ?? s.num ?? s.saison ?? 1), episodes: s.episodes || [] }));
       }
-    } catch(e){ console.warn("[Seasons] warn:", e); }
+    } catch(e){}
     out.sort((a,b)=> (a.numero||0)-(b.numero||0));
-    console.log("→ saisons:", out);
-    console.groupEnd();
     return out;
   }
 
@@ -1191,38 +1090,14 @@ if (path.startsWith("/anime")) {
     return NaN;
   }
 
-  // ---------- EPISODE IMAGE HELPERS ----------
-  function pickEpisodeImage(ep){
-    const candidates = [
-      ep?.img_url, ep?.vignette, ep?.image, ep?.thumbnail, ep?.url_vignette, ep?.cover, ep?.poster
-    ].filter(Boolean);
-    const url = candidates[0] || "";
-    if (url) console.log("[Ep IMG] choisi:", url);
-    else console.warn("[Ep IMG] aucune image pour:", ep?.titre || ep?.title || ep);
-    return url;
-  }
-  function preload(url, timeoutMs = 8000){
-    return new Promise(res => {
-      if (!url) return res(false);
-      const img = new Image();
-      const to  = setTimeout(() => res(false), timeoutMs);
-      img.onload = () => { clearTimeout(to); res(true); };
-      img.onerror = () => { clearTimeout(to); res(false); };
-      img.src = url;
-    });
-  }
-
   // ---------- RENDER ----------
   function renderHero(anime) {
-    console.group("[Hero] renderHero");
     const poster = anime.url_poster || anime.url_affiche || "";
     const logo   = anime.url_logo || "";
-    console.log("poster:", poster);
-    console.log("logo  :", logo);
 
     if (poster) {
       const img = new Image();
-      img.onload  = () => { setHeroPosterWithOverlay(poster); console.log("poster preload OK"); };
+      img.onload  = () => setHeroPosterWithOverlay(poster);
       img.onerror = () => setHeroPosterWithOverlay("");
       img.src = poster;
     } else {
@@ -1232,7 +1107,7 @@ if (path.startsWith("/anime")) {
     if ($logo && logo) { $logo.src = logo; $logo.alt = anime.titre || anime.title || "Logo anime"; }
 
     const genres = Array.isArray(anime.genres) ? anime.genres.join(", ") : (anime.genres || "");
-    safeText($genres, genres || "—");
+    safeText(document.querySelector(".frame-81 .genres"), genres || "—");
     if ($annee) safeText($annee, anime.annee || anime.year || "");
 
     const seasons = extractSeasons(anime);
@@ -1244,66 +1119,64 @@ if (path.startsWith("/anime")) {
     if ($btnLecture) {
       const firstS = seasons[0];
       const firstE = firstS?.episodes?.[0];
-      const epParam = firstE?.id || firstE?.stream_id || `${animeId}-s${firstS?.numero||1}e${Number(firstE?.numero ?? firstE?.num ?? 1)}`;
+      const epParam = firstE?.id || firstE?.stream_id || `${animeId}-s${firstS?.numero||1}e${1}`;
       $btnLecture.href = `/watch?ep=${encodeURIComponent(epParam)}&anime=${encodeURIComponent(animeId)}`;
       $btnLecture.setAttribute("data-require-auth", "");
       $btnLecture.setAttribute("data-action", "play");
       $btnLecture.dataset.payload = JSON.stringify({ epid: epParam });
-      console.log("BTN LECTURE → epid:", epParam);
     }
-    console.groupEnd();
+
+    const btnPlus = document.querySelector(".button-style-7");
+    if (btnPlus) {
+      btnPlus.setAttribute("data-require-auth", "");
+      btnPlus.setAttribute("data-action", "addToList");
+      btnPlus.dataset.payload = JSON.stringify({ animeId });
+    }
   }
 
-  async function fillEpisodeCard(root, seasonNumber, ep, index) {
-    console.log("  [fill] #"+(index+1), ep);
+  function clearEpisodesRow() {
+    if (!$rowEp) return;
+    const cards = Array.from($rowEp.querySelectorAll(".cards-ep"));
+    cards.forEach((card) => {
+      card.style.display = ""; // on les laisse visibles par défaut, on masquera après si besoin
+      const bg = card.querySelector(".card-contenu");
+      const t1 = card.querySelector(".anime-episode-titre");
+      const t2 = card.querySelectorAll(".anime-episode-desc");
+      if (bg) { bg.style.backgroundImage = ""; }
+      if (t1) t1.textContent = "";
+      t2.forEach(x => x.textContent = "");
+      const a = card.querySelector(".card-ep");
+      if (a) { a.href = "#"; a.removeAttribute("data-require-auth"); a.removeAttribute("data-action"); a.removeAttribute("data-payload"); }
+    });
+  }
 
+  // ⚠️ Utilise ep.img_url si dispo, pas de préfixe numéroté dans le titre (déjà présent dans la string)
+  function fillEpisodeCard(root, seasonNumber, ep) {
     const link = root.querySelector(".card-ep");
     const bg   = root.querySelector(".card-contenu");
     const t1   = root.querySelector(".anime-episode-titre");
     const tAll = root.querySelectorAll(".anime-episode-desc");
 
-    // Titre : on n'ajoute plus de numéro — on affiche la string telle quelle
-    const title = (ep?.title || ep?.titre || "Épisode").trim();
-    if (t1) t1.textContent = title;
+    // Titre : tel quel (pas d'ajout "1. ")
+    const titleText = ep.title || ep.titre || "Épisode";
+    if (t1) t1.textContent = titleText;
 
     // Durée
-    const durationMin = minutesFrom(ep?.duree ?? ep?.duration);
-    if (tAll[0]) tAll[0].textContent = isFinite(durationMin) ? `${durationMin} min` : (ep?.duree || ep?.duration || "");
+    const durationMin = minutesFrom(ep.duree ?? ep.duration);
+    if (tAll[0]) tAll[0].textContent = isFinite(durationMin) ? `${durationMin} min` : (ep.duree || ep.duration || "");
 
     // Synopsis
-    if (tAll[1]) tAll[1].textContent = ep?.synopsis || ep?.description || "";
+    if (tAll[1]) tAll[1].textContent = ep.synopsis || ep.description || "";
 
-    // Image d’épisode
-    const imgUrl = pickEpisodeImage(ep);
+    // Image d'épisode
+    const vignette = ep.img_url || ep.vignette || ep.image || ep.thumbnail || ep.url_vignette || null;
     if (bg) {
-      bg.style.removeProperty("background-image");
-      bg.style.backgroundSize = "cover";
-      bg.style.backgroundPosition = "center";
-      bg.style.backgroundRepeat   = "no-repeat";
-      const cs = getComputedStyle(bg);
-      if (!parseFloat(cs.width) || !parseFloat(cs.height)){
-        bg.style.aspectRatio = "16 / 9";
-        bg.style.width       = "300px";
-        bg.style.borderRadius = "12px";
-      }
-
-      if (imgUrl) {
-        const ok = await preload(imgUrl, 8000);
-        if (ok) {
-          bg.style.setProperty("background-image", `url("${imgUrl}")`, "important");
-          bg.classList.remove("is-img-missing");
-        } else {
-          console.warn("  [fill] preload FAIL:", imgUrl);
-          bg.classList.add("is-img-missing");
-        }
-      } else {
-        bg.classList.add("is-img-missing");
-      }
+      if (vignette) bg.style.backgroundImage = `url("${vignette}")`;
+      else bg.style.backgroundImage = "";
     }
 
-    // Lien / watch
-    const epNum = Number(ep?.numero ?? ep?.num ?? index+1);
-    const epid  = ep?.id || ep?.stream_id || `${animeId}-s${seasonNumber||1}e${epNum}`;
+    // Lien Watch (garde la logique d'identifiant)
+    const epid = ep.id || ep.stream_id || `${animeId}-s${seasonNumber||1}e${ep.numero ?? ep.num ?? ""}`;
     if (link) {
       link.href = `/watch?ep=${encodeURIComponent(epid)}&anime=${encodeURIComponent(animeId)}`;
       link.setAttribute("data-require-auth", "");
@@ -1312,77 +1185,29 @@ if (path.startsWith("/anime")) {
     }
   }
 
-  function clearEpisodesRow() {
+  // Remplit au plus 10 cartes, masque le surplus
+  function renderEpisodes(anime) {
     if (!$rowEp) return;
-    const nodes = Array.from($rowEp.querySelectorAll(".cards-ep"));
-    nodes.forEach((n) => {
-      const bg = n.querySelector(".card-contenu");
-      const t1 = n.querySelector(".anime-episode-titre");
-      const t2 = n.querySelectorAll(".anime-episode-desc");
-      if (bg) { bg.style.backgroundImage = ""; bg.classList.remove("is-img-missing"); }
-      if (t1) t1.textContent = "";
-      t2.forEach(x => x.textContent = "");
-      const a = n.querySelector(".card-ep");
-      if (a) { a.href = "#"; a.removeAttribute("data-require-auth"); a.removeAttribute("data-action"); a.removeAttribute("data-payload"); }
-      n.removeAttribute("hidden");
-      n.removeAttribute("aria-hidden");
-      n.classList.remove("is-hidden-ep");
-      n.style.removeProperty("display");
-      n.style.removeProperty("visibility");
-      n.style.removeProperty("height");
-      n.style.removeProperty("margin");
-      n.style.removeProperty("padding");
-    });
-    console.log("[Episodes] clearEpisodesRow → nb cards:", nodes.length);
-  }
 
-  async function renderEpisodes(anime) {
-    console.group("[Episodes] renderEpisodes");
-    if (!$rowEp || !$tplCard) { console.warn("  DOM manquant"); console.groupEnd(); return; }
+    const cards = Array.from($rowEp.querySelectorAll(".cards-ep")); // 10 placeholders
+    if (!cards.length) return;
 
-    const cards = Array.from($rowEp.querySelectorAll(".cards-ep"));
-    console.log("  placeholders trouvés (.cards-ep):", cards.length, cards);
     clearEpisodesRow();
 
     const seasons = extractSeasons(anime);
     const s = seasons[0];
-    if (!s || !Array.isArray(s.episodes) || s.episodes.length===0) {
-      console.log("  aucun épisode détecté");
-      console.groupEnd();
-      return;
-    }
+    const episodes = (s && Array.isArray(s.episodes)) ? s.episodes.filter(Boolean) : [];
+    const count = Math.min(episodes.length, cards.length);
 
-    const episodes = s.episodes.slice(0, cards.length);
-    const count = episodes.length;
-    console.log(`  episodes détectés (saison ${s?.numero??1}):`, count, episodes);
-    console.log(`  → on remplit: ${count} cartes / ${cards.length}`);
-
-    // Remplit les N premières cartes (await pour fiabilité du preload)
-    for (let i=0; i<count; i++) {
+    for (let i = 0; i < count; i++) {
       const card = cards[i];
-      try {
-        await fillEpisodeCard(card, s?.numero, episodes[i], i);
-      } catch (err) {
-        console.warn("  fillEpisodeCard error @", i, err);
-      }
+      card.style.display = "";      // visible
+      fillEpisodeCard(card, s?.numero, episodes[i]);
     }
 
-    // Hard-hide le reste
-    for (let i=count; i<cards.length; i++) {
-      const c = cards[i];
-      c.setAttribute("hidden", "true");
-      c.setAttribute("aria-hidden", "true");
-      c.classList.add("is-hidden-ep");
-      c.style.setProperty("display", "none", "important");
-      c.style.setProperty("visibility", "hidden", "important");
-      c.style.setProperty("height", "0px", "important");
-      c.style.setProperty("margin", "0px", "important");
-      c.style.setProperty("padding", "0px", "important");
-      console.log("  [hide] card index:", i, "→ hard-hidden");
+    for (let i = count; i < cards.length; i++) {
+      cards[i].style.display = "none"; // masque les placeholders en trop
     }
-
-    console.log("  état final cartes:", cards);
-    console.groupEnd();
   }
 
   // ---------- BOOT ----------
@@ -1392,17 +1217,14 @@ if (path.startsWith("/anime")) {
 
     try {
       const anime = await getAnimeById(animeId);
-      console.log("[AnimePage] anime:", anime);
       if (!anime) {
         safeText($titleHistory, "Anime introuvable");
-        console.warn("[AnimePage] introuvable:", animeId);
         return;
       }
+      populateHeroMeta(anime);
       renderHero(anime);
-      await renderEpisodes(anime);
-    } catch (e) {
-      console.error("[AnimePage] erreur:", e);
-    }
+      renderEpisodes(anime);
+    } catch (e) {}
   })();
 }
 </script>
